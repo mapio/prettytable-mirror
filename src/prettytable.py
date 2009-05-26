@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# PrettyTable TRUNK
+# PrettyTable 0.5
 # Copyright (c) 2009, Luke Maurits <luke@maurits.id.au>
 # All rights reserved.
 # With contributions from:

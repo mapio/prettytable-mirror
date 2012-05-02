@@ -4,6 +4,7 @@
 # All rights reserved.
 # With contributions from:
 #  * Chris Clark
+#  * Klein Stephane
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -30,11 +31,18 @@
 
 __version__ = "0.6"
 
-import cgi
-import copy
-import cPickle
-import random
 import sys
+import copy
+import random
+import textwrap
+
+py3k = sys.version_info[0] >= 3
+if py3k:
+    unicode = str
+    basestring = str
+    from html import escape
+else:
+    from cgi import escape
 
 # hrule styles
 FRAME = 0
@@ -47,12 +55,23 @@ MSWORD_FRIENDLY = 11
 PLAIN_COLUMNS = 12
 RANDOM = 20
 
-def cache_clearing(method):
-    def wrapper(self, *args, **kwargs):
-        method(self, *args, **kwargs)
-        self._cache = {}
-        self.html_cache = {}
-    return wrapper
+def _get_size(text):
+    max_width = 0
+    max_height = 0
+    text = _unicode(text)
+    for line in text.split("\n"):
+        max_height += 1
+        if len(line) > max_width:
+            max_width = len(line)
+
+    return (max_width, max_height)
+        
+def _unicode(value, encoding="UTF-8"):
+    if not isinstance(value, basestring):
+        value = str(value)
+    if not isinstance(value, unicode):
+        value = unicode(value, encoding, "replace")
+    return value
 
 class PrettyTable(object):
 
@@ -71,6 +90,8 @@ class PrettyTable(object):
         header - print a header showing field names (True or False)
         border - print a border around the table (True or False)
         hrules - controls printing of horizontal rules after rows.  Allowed values: FRAME, ALL, NONE
+	int_format - controls formatting of integer data
+	float_format - controls formatting of floating point data
         padding_width - number of spaces on either side of column data (only used if left and right paddings are None)
         left_padding_width - number of spaces on left hand side of column data
         right_padding_width - number of spaces on right hand side of column data
@@ -78,22 +99,23 @@ class PrettyTable(object):
         horizontal_char - single character string used to draw horizontal lines
         junction_char - single character string used to draw line junctions
         sortby - name of field to sort rows by
+        sort_key - sorting key function, applied to data points before sorting
         reversesort - True or False to sort in descending or ascending order"""
 
         # Data
         self._field_names = []
         self._align = {}
+        self._max_width = {}
+        self._rows = []
         if field_names:
             self.field_names = field_names
         else:
             self._widths = []
         self._rows = []
-        self._cache = {}
-        self.html_cache = {}
 
         # Options
-        self._options = "start end fields header border sortby reversesort attributes format hrules caching".split()
-        self._options.extend("padding_width left_padding_width right_padding_width".split())
+        self._options = "start end fields header border sortby reversesort sort_key attributes format hrules caching".split()
+        self._options.extend("int_format float_format padding_width left_padding_width right_padding_width".split())
         self._options.extend("vertical_char horizontal_char junction_char".split())
         for option in self._options:
             if option in kwargs:
@@ -113,7 +135,10 @@ class PrettyTable(object):
 
         self._sortby = kwargs["sortby"] or None
         self._reversesort = kwargs["reversesort"] or False
+        self._sort_key = kwargs["sort_key"] or (lambda x: x)
 
+        self._int_format = kwargs["float_format"] or {}
+        self._float_format = kwargs["float_format"] or {}
         self._padding_width = kwargs["padding_width"] or 1
         self._left_padding_width = kwargs["left_padding_width"] or None
         self._right_padding_width = kwargs["right_padding_width"] or None
@@ -130,25 +155,33 @@ class PrettyTable(object):
         if name == "rowcount":
             return len(self._rows)
         elif name == "colcount":
-            return len(self._field_names)
+            if self._field_names:
+                return len(self._field_names)
+            elif self._rows:
+                return len(self._rows[0])
+            else:
+                return 0
         else:
-            raise AttributeError, name
+            raise AttributeError(name)
  
-    def __getslice__(self, i, j):
-
-        """Return a new PrettyTable whose data rows are a slice of this one's
-
-        Arguments:
-
-        i - beginning slice index
-        j - ending slice index"""
+    def __getitem__(self, index):
 
         newtable = copy.deepcopy(self)
-        newtable.rows = self._rows[i:j]
+        if isinstance(index, slice):
+            newtable._rows = self._rows[index]
+        elif isinstance(index, int):
+            newtable._rows = [self._rows[index],]
+        else:
+            raise Exception("Index %s is invalid, must be an integer or slice" % str(index))
         return newtable
 
     def __str__(self):
+        if py3k:
+            return self.get_string()
+        else:
+            return self.get_string().encode("ascii","replace")
 
+    def __unicode__(self):
         return self.get_string()
 
     ##############################
@@ -167,12 +200,18 @@ class PrettyTable(object):
             self._validate_nonnegative_int(option, val)
         elif option in ("sortby"):
             self._validate_field_name(option, val)
+        elif option in ("sort_key"):
+            self._validate_function(option, val)
         elif option in ("hrules"):
             self._validate_hrules(option, val)
         elif option in ("fields"):
             self._validate_all_field_names(option, val)
         elif option in ("header", "border", "caching", "reversesort"):
             self._validate_true_or_false(option, val)
+        elif option in ("int_format"):
+            self._validate_int_format(option, val)
+        elif option in ("float_format"):
+            self._validate_float_format(option, val)
         elif option in ("vertical_char", "horizontal_char", "junction_char"):
             self._validate_single_char(option, val)
         elif option in ("attributes"):
@@ -190,13 +229,41 @@ class PrettyTable(object):
         try:
             assert int(val) >= 0
         except AssertionError:
-            raise Exception("Invalid value for %s: %s!" % (name, unicode(val)))
+            raise Exception("Invalid value for %s: %s!" % (name, _unicode(val)))
 
     def _validate_true_or_false(self, name, val):
         try:
             assert val in (True, False)
         except AssertionError:
             raise Exception("Invalid value for %s!  Must be True or False." % name)
+
+    def _validate_int_format(self, name, val):
+        if val == "":
+            return
+        try:
+            assert type(val) in (str, unicode)
+            assert val.isdigit()
+        except AssertionError:
+            raise Exception("Invalid value for %s!  Must be an integer format string." % name)
+
+    def _validate_float_format(self, name, val):
+        if val == "":
+            return
+        try:
+            assert type(val) in (str, unicode)
+            assert "." in val
+            bits = val.split(".")
+            assert len(bits) <= 2
+            assert bits[0] == "" or bits[0].isdigit()
+            assert bits[1] == "" or bits[1].isdigit()
+        except AssertionError:
+            raise Exception("Invalid value for %s!  Must be a float format string." % name)
+
+    def _validate_function(self, name, val):
+        try:
+            assert hasattr(val, "__call__")
+        except AssertionError:
+            raise Exception("Invalid value for %s!  Must be a function." % name)
 
     def _validate_hrules(self, name, val):
         try:
@@ -219,7 +286,7 @@ class PrettyTable(object):
 
     def _validate_single_char(self, name, val):
         try:
-            assert len(unicode(val)) == 1
+            assert len(_unicode(val)) == 1
         except AssertionError:
             raise Exception("Invalid value for %s!  Must be a string of length 1." % name)
 
@@ -240,28 +307,36 @@ class PrettyTable(object):
         Arguments:
 
         fields - list or tuple of field names"""
-    @cache_clearing
     def _set_field_names(self, val):
-        # We *may* need to change the widths if this isn't the first time
-        # setting the field names.  This could certainly be done more
-        # efficiently.
         if self._field_names:
-            self._recompute_widths()
-        else:
-            self._widths = [len(field) for field in val]
+            old_names = self._field_names[:]
         self._field_names = val
-        self.align = "c"
+        if self._align and old_names:
+            for old_name, new_name in zip(old_names, val):
+                self._align[new_name] = self._align[old_name]
+            for old_name in old_names:
+                self._align.pop(old_name)
+        else:
+            for field in self._field_names:
+                self._align[field] = "c"
     field_names = property(_get_field_names, _set_field_names)
 
     def _get_align(self):
         return self._align
-    @cache_clearing
     def _set_align(self, val):
         self._validate_align(val)
         for field in self._field_names:
             self._align[field] = val
     align = property(_get_align, _set_align)
 
+    def _get_max_width(self):
+        return self._max_width
+    def _set_max_width(self, val):
+        self._validate_nonnegativeint(val)
+        for field in self._field_names:
+            self._max_width[field] = val
+    max_width = property(_get_max_width, _set_max_width)
+    
     def _get_start(self):
         """Start index of the range of rows to print
 
@@ -269,6 +344,7 @@ class PrettyTable(object):
 
         start - index of first data row to include in output"""
         return self._start
+
     def _set_start(self, val):
         self._validate_option("start", val)
         self._start = val
@@ -310,6 +386,18 @@ class PrettyTable(object):
         self._reversesort = val
     reversesort = property(_get_reversesort, _set_reversesort)
 
+    def _get_sort_key(self):
+        """Sorting key function, applied to data points before sorting
+
+        Arguments:
+
+        sort_key - a function which takes one argument and returns something to be sorted"""
+        return self._sort_key
+    def _set_sort_key(self, val):
+        self._validate_option("sort_key", val)
+        self._sort_key = val
+    sort_key = property(_get_sort_key, _set_sort_key)
+ 
     def _get_header(self):
         """Controls printing of table header with field names
 
@@ -345,6 +433,30 @@ class PrettyTable(object):
         self._validate_option("hrules", val)
         self._hrules = val
     hrules = property(_get_hrules, _set_hrules)
+
+    def _get_int_format(self):
+        """Controls formatting of integer data
+        Arguments:
+
+        int_format - integer format string"""
+        return self._int_format
+    def _set_int_format(self, val):
+        self._validate_option("int_format", val)
+        for field in self._field_names:
+            self._int_format[field] = val
+    int_format = property(_get_int_format, _set_int_format)
+
+    def _get_float_format(self):
+        """Controls formatting of floating point data
+        Arguments:
+
+        float_format - floating point format string"""
+        return self._float_format
+    def _set_float_format(self, val):
+        self._validate_option("float_format", val)
+        for field in self._field_names:
+            self._float_format[field] = val
+    float_format = property(_get_float_format, _set_float_format)
 
     def _get_padding_width(self):
         """The number of empty spaces between a column's edge and its content
@@ -478,7 +590,7 @@ class PrettyTable(object):
 
         self.header = True
         self.border = True
-        self.hrules = FRAME
+        self._hrules = FRAME
         self.padding_width = 1
         self.left_padding_width = 1
         self.right_padding_width = 1
@@ -490,7 +602,7 @@ class PrettyTable(object):
 
         self.header = True
         self.border = True
-        self.hrules = NONE
+        self._hrules = NONE
         self.padding_width = 1
         self.left_padding_width = 1
         self.right_padding_width = 1
@@ -509,7 +621,7 @@ class PrettyTable(object):
         # Just for fun!
         self.header = random.choice((True, False))
         self.border = random.choice((True, False))
-        self.hrules = random.choice((ALL, FRAME, NONE))
+        self._hrules = random.choice((ALL, FRAME, NONE))
         self.left_padding_width = random.randint(0,5)
         self.right_padding_width = random.randint(0,5)
         self.vertical_char = random.choice("~!@#$%^&*()_+|-=\{}[];':\",./;<>?")
@@ -520,7 +632,6 @@ class PrettyTable(object):
     # DATA INPUT METHODS         #
     ##############################
 
-    @cache_clearing
     def add_row(self, row):
 
         """Add a row to the table
@@ -530,14 +641,10 @@ class PrettyTable(object):
         row - row of data, should be a list with as many elements as the table
         has fields"""
 
-        if len(row) != len(self._field_names):
+        if self._field_names and len(row) != len(self._field_names):
             raise Exception("Row has incorrect number of values, (actual) %d!=%d (expected)" %(len(row),len(self._field_names)))
-        self._rows.append(row)
-        for i in range(0,len(row)):
-            if len(unicode(row[i])) > self._widths[i]:
-                self._widths[i] = len(unicode(row[i]))
+        self._rows.append(list(row))
 
-    @cache_clearing
     def del_row(self, row_index):
 
         """Delete a row to the table
@@ -549,9 +656,7 @@ class PrettyTable(object):
         if row_index > len(self._rows)-1:
             raise Exception("Cant delete row at index %d, table only has %d rows!" % (row_index, len(self._rows)))
         del self._rows[row_index]
-        self._recompute_widths()
 
-    @cache_clearing
     def add_column(self, fieldname, column, align="c"):
 
         """Add a column to the table.
@@ -566,26 +671,20 @@ class PrettyTable(object):
         if len(self._rows) in (0, len(column)):
             self._validate_align(align)
             self._field_names.append(fieldname)
-            self._widths.append(len(fieldname))
             self._align[fieldname] = align
             for i in range(0, len(column)):
                 if len(self._rows) < i+1:
                     self._rows.append([])
                 self._rows[i].append(column[i])
-                if len(unicode(column[i])) > self._widths[-1]:
-                    self._widths[-1] = len(unicode(column[i]))
         else:
             raise Exception("Column length %d does not match number of rows %d!" % (len(column), len(self._rows)))
 
-    @cache_clearing
     def clear_rows(self):
 
         """Delete all rows from the table but keep the current field names"""
 
         self._rows = []
-        self._widths = [len(unicode(field_name)) for field_name in self._field_names]
 
-    @cache_clearing
     def clear(self):
 
         """Delete all rows and field names from the table, maintaining nothing but styling options"""
@@ -605,12 +704,23 @@ class PrettyTable(object):
     # MISC PRIVATE METHODS       #
     ##############################
 
-    def _recompute_widths(self):
-        self._widths = [len(field) for field in self._field_names]
-        for row in self._rows:
-            for i in range(0,len(row)):
-                if len(unicode(row[i])) > self._widths[i]:
-                    self._widths[i] = len(unicode(row[i]))
+    def _format_value(self, field, value):
+        if isinstance(value, int) and field in self._int_format:
+            value = ("%%%sd" % self._int_format[field]) % value 
+        elif isinstance(value, float) and field in self._float_format:
+            value = ("%%%sf" % self._float_format[field]) % value 
+        return value
+
+    def _compute_widths(self, rows, options):
+        if options["header"]:
+            widths = [_get_size(field)[0] for field in self._field_names]
+        else:
+            widths = len(self.field_names) * [0]
+        for row in rows:
+            for index, value in enumerate(row):
+                value = self._format_value(self.field_names[index], value)
+                widths[index] = max(widths[index], _get_size(_unicode(value))[0])
+        self._widths = widths
 
     def _get_padding_widths(self, options):
 
@@ -624,44 +734,29 @@ class PrettyTable(object):
             rpad = options["padding_width"]
         return lpad, rpad
 
-    def _get_sorted_rows(self, options):
-        # Sort rows using the "Decorate, Sort, Undecorate" (DSU) paradigm
-        rows = copy.deepcopy(self._rows[options["start"]:options["end"]])
-        sortindex = self._field_names.index(options["sortby"])
-        # Decorate
-        rows = [[row[sortindex]]+row for row in rows]
-        # Sort
-        rows.sort(reverse=options["reversesort"])
-        # Undecorate
-        rows = [row[1:] for row in rows]
-        return rows
-
-    ##############################
-    # ASCII PRINT/STRING METHODS #
-    ##############################
-
-    def printt(self, **kwargs):
-
-        """Print table in current state to stdout.
+    def _get_rows(self, options):
+        """Return only those data rows that should be printed, based on slicing and sorting.
 
         Arguments:
 
-        start - index of first data row to include in output
-        end - index of last data row to include in output PLUS ONE (list slice style)
-        fields - names of fields (columns) to include
-        header - print a header showing field names (True or False)
-        border - print a border around the table (True or False)
-        hrules - controls printing of horizontal rules after rows.  Allowed values: FRAME, ALL, NONE
-        padding_width - number of spaces on either side of column data (only used if left and right paddings are None)
-        left_padding_width - number of spaces on left hand side of column data
-        right_padding_width - number of spaces on right hand side of column data
-        vertical_char - single character string used to draw vertical lines
-        horizontal_char - single character string used to draw horizontal lines
-        junction_char - single character string used to draw line junctions
-        sortby - name of field to sort rows by
-        reversesort - True or False to sort in descending or ascending order"""
-
-        print self.get_string(**kwargs)
+        options - dictionary of option settings."""
+       
+	# Make a copy of only those rows in the slice range 
+        rows = copy.deepcopy(self._rows[options["start"]:options["end"]])
+        # Sort if necessary
+        if options["sortby"]:
+            sortindex = self._field_names.index(options["sortby"])
+            # Decorate
+            rows = [[row[sortindex]]+row for row in rows]
+            # Sort
+            rows.sort(reverse=options["reversesort"], key=options["sort_key"])
+            # Undecorate
+            rows = [row[1:] for row in rows]
+        return rows
+         
+    ##############################
+    # PLAIN TEXT STRING METHODS  #
+    ##############################
 
     def get_string(self, **kwargs):
 
@@ -675,6 +770,8 @@ class PrettyTable(object):
         header - print a header showing field names (True or False)
         border - print a border around the table (True or False)
         hrules - controls printing of horizontal rules after rows.  Allowed values: FRAME, ALL, NONE
+	int_format - controls formatting of integer data
+	float_format - controls formatting of floating point data
         padding_width - number of spaces on either side of column data (only used if left and right paddings are None)
         left_padding_width - number of spaces on left hand side of column data
         right_padding_width - number of spaces on right hand side of column data
@@ -682,52 +779,45 @@ class PrettyTable(object):
         horizontal_char - single character string used to draw horizontal lines
         junction_char - single character string used to draw line junctions
         sortby - name of field to sort rows by
+        sort_key - sorting key function, applied to data points before sorting
         reversesort - True or False to sort in descending or ascending order"""
 
         options = self._get_options(kwargs)
 
-        if self._caching:
-            key = cPickle.dumps(options)
-            if key in self._cache:
-                return self._cache[key]
-
         bits = []
-        if not self._field_names:
+
+        # Don't think too hard about an empty table
+        if self.rowcount == 0:
             return ""
-        if not options["header"]:
-            # Recalculate widths - avoids tables with long field names but narrow data looking odd
-            old_widths = self._widths[:]
-            self._widths = [0]*len(self._field_names)
-            for row in self._rows:
-                for i in range(0,len(row)):
-                    if len(unicode(row[i])) > self._widths[i]:
-                        self._widths[i] = len(unicode(row[i]))
+
+        rows = self._get_rows(options)
+        self._compute_widths(rows, options)
+
+        # Build rows
+        # (for now, this is done before building headers etc. because rowbits.append
+        # contains width-adjusting voodoo which has to be done first.  This is ugly
+        # and Wrong and will change soon)
+        rowbits = []
+        for row in rows:
+            rowbits.append(self._stringify_row(row, options))
+
+
+        # Add header or top of border
         if options["header"]:
             bits.append(self._stringify_header(options))
         elif options["border"] and options["hrules"] != NONE:
-            bits.append(self._stringify_hrule(options))
-        if options["sortby"]:
-            rows = self._get_sorted_rows(options)
-        else:
-            rows = self._rows[options["start"]:options["end"]]
-        for row in rows:
-            bits.append(self._stringify_row(row, options))
+            bits.append(self._hrule)
+
+        # Add rows
+        bits.extend(rowbits)
+
+        # Add bottom of border
         if options["border"] and not options["hrules"]:
-            bits.append(self._stringify_hrule(options))
+            bits.append(self._hrule)
+        
         string = "\n".join(bits)
-
-        if self._caching:
-            self._cache[key] = string
-
-        if not options["header"]:
-            # Restore previous widths
-            self._widths = old_widths
-            for row in self._rows:
-                for i in range(0,len(row)):
-                    if len(unicode(row[i])) > self._widths[i]:
-                        self._widths[i] = len(unicode(row[i]))
-
-        return string
+        self._nonunicode = string
+        return _unicode(string)
 
     def _stringify_hrule(self, options):
 
@@ -748,68 +838,104 @@ class PrettyTable(object):
         lpad, rpad = self._get_padding_widths(options)
         if options["border"]:
             if options["hrules"] != NONE:
-                bits.append(self._stringify_hrule(options))
+                bits.append(self._hrule)
                 bits.append("\n")
             bits.append(options["vertical_char"])
         for field, width, in zip(self._field_names, self._widths):
             if options["fields"] and field not in options["fields"]:
                 continue
             if self._align[field] == "l":
-                bits.append(" " * lpad + unicode(field).ljust(width) + " " * rpad)
+                bits.append(" " * lpad + _unicode(field).ljust(width) + " " * rpad)
             elif self._align[field] == "r":
-                bits.append(" " * lpad + unicode(field).rjust(width) + " " * rpad)
+                bits.append(" " * lpad + _unicode(field).rjust(width) + " " * rpad)
             else:
-                bits.append(" " * lpad + unicode(field).center(width) + " " * rpad)
+                bits.append(" " * lpad + _unicode(field).center(width) + " " * rpad)
             if options["border"]:
                 bits.append(options["vertical_char"])
         if options["border"] and options["hrules"] != NONE:
             bits.append("\n")
-            bits.append(self._stringify_hrule(options))
+            bits.append(self._hrule)
         return "".join(bits)
 
     def _stringify_row(self, row, options):
+        
+        for index, value in enumerate(row):
+            row[index] = self._format_value(self.field_names[index], value)
+
+        for index, field, value, width, in zip(range(0,len(row)), self._field_names, row, self._widths):
+            # Enforce max widths
+            max_width = self._max_width.get(field, 0)
+            lines = _unicode(value).split("\n")
+            new_lines = []
+            for line in lines: 
+                if max_width and len(line) > max_width:
+                    line = textwrap.fill(line, max_width)
+                new_lines.append(line)
+            lines = new_lines
+            value = "\n".join(lines)
+            row[index] = value
+
+        #old_widths = self._widths[:]
+
+        for index, field in enumerate(self._field_names):
+            namewidth = len(field)
+            datawidth = min(self._widths[index], self._max_width.get(field, self._widths[index]))
+            if options["header"]:
+               self._widths[index] = max(namewidth, datawidth)
+            else:
+               self._widths[index] = datawidth
+        
+        row_height = 0
+        for c in row:
+            h = _get_size(c)[1]
+            if h > row_height:
+                row_height = h
 
         bits = []
         lpad, rpad = self._get_padding_widths(options)
-        if options["border"]:
-            bits.append(self.vertical_char)
-        for field, value, width, in zip(self._field_names, row, self._widths):
-            if options["fields"] and field not in options["fields"]:
-                continue
-            if self._align[field] == "l":
-                bits.append(" " * lpad + unicode(value).ljust(width) + " " * rpad)
-            elif self._align[field] == "r":
-                bits.append(" " * lpad + unicode(value).rjust(width) + " " * rpad)
-            else:
-                bits.append(" " * lpad + unicode(value).center(width) + " " * rpad)
+        for y in range(0, row_height):
+            bits.append([])
             if options["border"]:
-                bits.append(self.vertical_char)
+                bits[y].append(self.vertical_char)
+
+        for field, value, width, in zip(self._field_names, row, self._widths):
+
+            lines = _unicode(value).split("\n")
+            if len(lines) < row_height:
+                lines = lines + ([""] * (row_height-len(lines)))
+
+            y = 0
+            for l in lines:
+                if options["fields"] and field not in options["fields"]:
+                    continue
+
+                if self._align[field] == "l":
+                    bits[y].append(" " * lpad + _unicode(l).ljust(width) + " " * rpad)
+                elif self._align[field] == "r":
+                    bits[y].append(" " * lpad + _unicode(l).rjust(width) + " " * rpad)
+                else:
+                    bits[y].append(" " * lpad + _unicode(l).center(width) + " " * rpad)
+                if options["border"]:
+                    bits[y].append(self.vertical_char)
+
+                y += 1
+
+        self._hrule = self._stringify_hrule(options)
+        
         if options["border"] and options["hrules"]== ALL:
-            bits.append("\n")
-            bits.append(self._stringify_hrule(options))
-        return "".join(bits)
+            bits[row_height-1].append("\n")
+            bits[row_height-1].append(self._hrule)
+
+        for y in range(0, row_height):
+            bits[y] = "".join(bits[y])
+
+        #self._widths = old_widths
+
+        return "\n".join(bits)
 
     ##############################
-    # HTML PRINT/STRING METHODS  #
+    # HTML STRING METHODS        #
     ##############################
-
-    def print_html(self, **kwargs):
-
-        """Print HTML formatted version of table in current state to stdout.
-
-        Arguments:
-
-        start - index of first data row to include in output
-        end - index of last data row to include in output PLUS ONE (list slice style)
-        fields - names of fields (columns) to include
-        sortby - name of field to sort rows by
-        format - should be True or False to attempt to format alignmet, padding, etc. or not
-        header - should be True or False to print a header showing field names or not
-        border - should be True or False to print or not print borders
-        hrules - include horizontal rule after each row
-        attributes - dictionary of name/value pairs to include as HTML attributes in the <table> tag"""
-
-        print self.get_html_string(**kwargs)
 
     def get_html_string(self, **kwargs):
 
@@ -820,30 +946,27 @@ class PrettyTable(object):
         start - index of first data row to include in output
         end - index of last data row to include in output PLUS ONE (list slice style)
         fields - names of fields (columns) to include
-        sortby - name of 
-        border - should be True or False to print or not print borders
-        format - should be True or False to attempt to format alignmet, padding, etc. or not
-        header - should be True or False to print a header showing field names or not
-        border - should be True or False to print or not print borders
-        hrules - include horizontal rule after each row
+        header - print a header showing field names (True or False)
+        border - print a border around the table (True or False)
+        hrules - controls printing of horizontal rules after rows.  Allowed values: FRAME, ALL, NONE
+	int_format - controls formatting of integer data
+	float_format - controls formatting of floating point data
+        padding_width - number of spaces on either side of column data (only used if left and right paddings are None)
+        left_padding_width - number of spaces on left hand side of column data
+        right_padding_width - number of spaces on right hand side of column data
+        sortby - name of field to sort rows by
+        sort_key - sorting key function, applied to data points before sorting
         attributes - dictionary of name/value pairs to include as HTML attributes in the <table> tag"""
 
         options = self._get_options(kwargs)
-
-        if self._caching:
-            key = cPickle.dumps(options)
-            if key in self.html_cache:
-                return self.html_cache[key]
 
         if options["format"]:
             string = self._get_formatted_html_string(options)
         else:
             string = self._get_simple_html_string(options)
 
-        if self._caching:
-            self.html_cache[key] = string
-
-        return string
+        self._nonunicode = string
+        return _unicode(string)
 
     def _get_simple_html_string(self, options):
 
@@ -857,29 +980,31 @@ class PrettyTable(object):
                 table_tag += ' %s="%s"' % (attr_name, options["attributes"][attr_name])
         table_tag += '>'
         bits.append(table_tag)
+
         # Headers
-        bits.append("    <tr>")
-        for field in self._field_names:
-            if options["fields"] and field not in options["fields"]:
-                continue
-            bits.append("        <th>%s</th>" % cgi.escape(unicode(field)))
-        bits.append("    </tr>")
+        if options["header"]:
+            bits.append("    <tr>")
+            for field in self._field_names:
+                if options["fields"] and field not in options["fields"]:
+                    continue
+                bits.append("        <th>%s</th>" % escape(_unicode(field)).replace("\n", "<br />"))
+            bits.append("    </tr>")
+
         # Data
-        if options["sortby"]:
-            rows = self._get_sorted_rows(options)
-        else:
-            rows = self._rows
-        for row in self._rows:
+        rows = self._get_rows(options)
+        for row in rows:
             bits.append("    <tr>")
             for field, datum in zip(self._field_names, row):
                 if options["fields"] and field not in options["fields"]:
                     continue
-                bits.append("        <td>%s</td>" % cgi.escape(unicode(datum)))
-        bits.append("    </tr>")
+                bits.append("        <td>%s</td>" % escape(_unicode(datum)).replace("\n", "<br />"))
+            bits.append("    </tr>")
+
         bits.append("</table>")
         string = "\n".join(bits)
 
-        return string
+        self._nonunicode = string
+        return _unicode(string)
 
     def _get_formatted_html_string(self, options):
 
@@ -902,42 +1027,44 @@ class PrettyTable(object):
             for field in self._field_names:
                 if options["fields"] and field not in options["fields"]:
                     continue
-                bits.append("        <th style=\"padding-left: %dem; padding-right: %dem; text-align: center\">%s</th>" % (lpad, rpad, cgi.escape(unicode(field))))
+                bits.append("        <th style=\"padding-left: %dem; padding-right: %dem; text-align: center\">%s</th>" % (lpad, rpad, escape(_unicode(field)).replace("\n", "<br />")))
             bits.append("    </tr>")
         # Data
-        if options["sortby"]:
-            rows = self._get_sorted_rows(options)
-        else:
-            rows = self._rows
+        rows = self._get_rows(options)
         for row in self._rows:
             bits.append("    <tr>")
             for field, datum in zip(self._field_names, row):
                 if options["fields"] and field not in options["fields"]:
                     continue
                 if self._align[field] == "l":
-                    bits.append("        <td style=\"padding-left: %dem; padding-right: %dem; text-align: left\">%s</td>" % (lpad, rpad, cgi.escape(unicode(datum))))
+                    bits.append("        <td style=\"padding-left: %dem; padding-right: %dem; text-align: left\">%s</td>" % (lpad, rpad, escape(_unicode(datum)).replace("\n", "<br />")))
                 elif self._align[field] == "r":
-                    bits.append("        <td style=\"padding-left: %dem; padding-right: %dem; text-align: right\">%s</td>" % (lpad, rpad, cgi.escape(unicode(datum))))
+                    bits.append("        <td style=\"padding-left: %dem; padding-right: %dem; text-align: right\">%s</td>" % (lpad, rpad, escape(_unicode(datum)).replace("\n", "<br />")))
                 else:
-                    bits.append("        <td style=\"padding-left: %dem; padding-right: %dem; text-align: center\">%s</td>" % (lpad, rpad, cgi.escape(unicode(datum))))
-        bits.append("    </tr>")
+                    bits.append("        <td style=\"padding-left: %dem; padding-right: %dem; text-align: center\">%s</td>" % (lpad, rpad, escape(_unicode(datum)).replace("\n", "<br />")))
+            bits.append("    </tr>")
         bits.append("</table>")
         string = "\n".join(bits)
 
-        return string
+        self._nonunicode = string
+        return _unicode(string)
 
 def main():
 
     x = PrettyTable(["City name", "Area", "Population", "Annual Rainfall"])
+    x.sortby = "Population"
+    x.reversesort = True
+    x.int_format["Area"] = "04"
+    x.float_format = "6.1"
     x.align["City name"] = "l" # Left align city names
-    x.add_row(["Adelaide",1295, 1158259, 600.5])
-    x.add_row(["Brisbane",5905, 1857594, 1146.4])
+    x.add_row(["Adelaide", 1295, 1158259, 600.5])
+    x.add_row(["Brisbane", 5905, 1857594, 1146.4])
     x.add_row(["Darwin", 112, 120900, 1714.7])
     x.add_row(["Hobart", 1357, 205556, 619.5])
     x.add_row(["Sydney", 2058, 4336374, 1214.8])
     x.add_row(["Melbourne", 1566, 3806092, 646.9])
     x.add_row(["Perth", 5386, 1554769, 869.4])
-    print x
-
+    print(x)
+    
 if __name__ == "__main__":
     main()

@@ -1,4 +1,4 @@
-########## PrettyTable 0.6 - April XX, 2012 ##########
+########## PrettyTable 0.6 - April 05, 2012 ##########
 
 * Code is now simultaneously compatible with Python 2 and 3
 * Replaced all setter methods with managed attributes

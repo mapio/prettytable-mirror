@@ -1,3 +1,14 @@
+########## PrettyTable 0.6.1 - June 03, 2012 ##########
+
+* Unicode encoding scheme can now be set by user
+* __str__ now uses user-specified encoding instead of ASCII.  This
+ fixes a bug where tables with non-ASCII characters would print
+ correctly with "print x.get_string()" but not "print x" in 2.x
+ (thanks to Google Code user kevincobain2000 for reporting this
+ bug!)
+* Fixed an incompatibility with 3.0 and 3.1 (html.escape was new
+  in 3.2)
+
 ########## PrettyTable 0.6 - April 05, 2012 ##########
 
 * Code is now simultaneously compatible with Python 2 and 3

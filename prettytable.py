@@ -29,7 +29,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-__version__ = "0.6"
+__version__ = "0.6.1"
 
 import sys
 import copy
@@ -40,6 +40,7 @@ py3k = sys.version_info[0] >= 3
 if py3k:
     unicode = str
     basestring = str
+if py3k and sys.version_info[1] >= 2:
     from html import escape
 else:
     from cgi import escape
@@ -75,13 +76,14 @@ def _unicode(value, encoding="UTF-8"):
 
 class PrettyTable(object):
 
-    def __init__(self, field_names=None, **kwargs):
+    def __init__(self, field_names=None, encoding="UTF-8", **kwargs):
 
         """Return a new PrettyTable instance
 
         Arguments:
 
         field_names - list or tuple of field names
+        encoding - Unicode encoding scheme to use
         fields - list or tuple of field names to include in displays
         start - index of first data row to include in output
         end - index of last data row to include in output PLUS ONE (list slice style)
@@ -100,6 +102,8 @@ class PrettyTable(object):
         sortby - name of field to sort rows by
         sort_key - sorting key function, applied to data points before sorting
         reversesort - True or False to sort in descending or ascending order"""
+
+        self.encoding = encoding
 
         # Data
         self._field_names = []
@@ -177,7 +181,7 @@ class PrettyTable(object):
         if py3k:
             return self.get_string()
         else:
-            return self.get_string().encode("ascii","replace")
+            return self.get_string().encode(self.encoding)
 
     def __unicode__(self):
         return self.get_string()

@@ -29,22 +29,21 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-__version__ = "TRUNK"
+__version__ = "0.6.1"
 
+import sys
 import copy
 import random
-import sys
 import textwrap
 
 py3k = sys.version_info[0] >= 3
 if py3k:
     unicode = str
     basestring = str
+if py3k and sys.version_info[1] >= 2:
     from html import escape
-    from io import StringIO
 else:
     from cgi import escape
-    from cStringIO import StringIO
 
 # hrule styles
 FRAME = 0
@@ -77,13 +76,14 @@ def _unicode(value, encoding="UTF-8"):
 
 class PrettyTable(object):
 
-    def __init__(self, field_names=None, **kwargs):
+    def __init__(self, field_names=None, encoding="UTF-8", **kwargs):
 
         """Return a new PrettyTable instance
 
         Arguments:
 
         field_names - list or tuple of field names
+        encoding - Unicode encoding scheme to use
         fields - list or tuple of field names to include in displays
         start - index of first data row to include in output
         end - index of last data row to include in output PLUS ONE (list slice style)
@@ -102,6 +102,8 @@ class PrettyTable(object):
         sortby - name of field to sort rows by
         sort_key - sorting key function, applied to data points before sorting
         reversesort - True or False to sort in descending or ascending order"""
+
+        self.encoding = encoding
 
         # Data
         self._field_names = []
@@ -179,7 +181,7 @@ class PrettyTable(object):
         if py3k:
             return self.get_string()
         else:
-            return self.get_string().encode("ascii","replace")
+            return self.get_string().encode(self.encoding)
 
     def __unicode__(self):
         return self.get_string()
@@ -196,7 +198,7 @@ class PrettyTable(object):
     # Secondly, in the _get_options method, where keyword arguments are mixed with persistent settings
 
     def _validate_option(self, option, val):
-        if option in ("start", "end", "max_width", "padding_width", "left_padding_width", "right_padding_width", "format"):
+        if option in ("start", "end", "padding_width", "left_padding_width", "right_padding_width", "format"):
             self._validate_nonnegative_int(option, val)
         elif option in ("sortby"):
             self._validate_field_name(option, val)
@@ -332,7 +334,7 @@ class PrettyTable(object):
     def _get_max_width(self):
         return self._max_width
     def _set_max_width(self, val):
-        self._validate_option("max_width", val)
+        self._validate_nonnegativeint(val)
         for field in self._field_names:
             self._max_width[field] = val
     max_width = property(_get_max_width, _set_max_width)
@@ -550,7 +552,7 @@ class PrettyTable(object):
         attributes - dictionary of attributes"""
         return self._attributes
     def _set_attributes(self, val):
-        self._validate_option("attributes", val)
+        self.validate_option("attributes", val)
         self._attributes = val
     attributes = property(_get_attributes, _set_attributes)
 
@@ -753,10 +755,7 @@ class PrettyTable(object):
             # Undecorate
             rows = [row[1:] for row in rows]
         return rows
-        
-    def _format_rows(self, rows, options):
-        return rows
- 
+         
     ##############################
     # PLAIN TEXT STRING METHODS  #
     ##############################
@@ -787,7 +786,7 @@ class PrettyTable(object):
 
         options = self._get_options(kwargs)
 
-        string = StringIO()
+        bits = []
 
         # Don't think too hard about an empty table
         if self.rowcount == 0:
@@ -796,36 +795,29 @@ class PrettyTable(object):
         rows = self._get_rows(options)
         self._compute_widths(rows, options)
 
-        formatted_rows = self._format_rows(rows, options)
-
         # Build rows
         # (for now, this is done before building headers etc. because rowbits.append
         # contains width-adjusting voodoo which has to be done first.  This is ugly
         # and Wrong and will change soon)
         rowbits = []
-        for row in formatted_rows:
+        for row in rows:
             rowbits.append(self._stringify_row(row, options))
 
 
         # Add header or top of border
         if options["header"]:
-            string.write(self._stringify_header(options))
-           # string.write("\n")
+            bits.append(self._stringify_header(options))
         elif options["border"] and options["hrules"] != NONE:
-            string.write(self._hrule)
-           # string.write("\n")
+            bits.append(self._hrule)
 
         # Add rows
-        for rowbit in rowbits:
-            string.write("\n")
-            string.write(rowbit)
+        bits.extend(rowbits)
 
         # Add bottom of border
         if options["border"] and not options["hrules"]:
-            string.write("\n")
-            string.write(self._hrule)
+            bits.append(self._hrule)
         
-        string = string.getvalue()
+        string = "\n".join(bits)
         self._nonunicode = string
         return _unicode(string)
 
@@ -840,7 +832,6 @@ class PrettyTable(object):
                 continue
             bits.append((width+lpad+rpad)*options["horizontal_char"])
             bits.append(options["junction_char"])
-#        bits.append("\n")
         return "".join(bits)
 
     def _stringify_header(self, options):

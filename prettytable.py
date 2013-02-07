@@ -106,10 +106,7 @@ class PrettyTable(object):
         valign - default valign for each row (None, "t", "m" or "b")
         reversesort - True or False to sort in descending or ascending order"""
 
-        if "encoding" in kwargs:
-            self.encoding = kwargs["encoding"]
-        else:
-            self.encoding = "UTF-8"
+        self.encoding = kwargs.get("encoding", "UTF-8")
 
         # Data
         self._field_names = []

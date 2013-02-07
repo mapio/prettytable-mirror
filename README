@@ -69,12 +69,12 @@ fp.close()
 If you have your table data in a database which you can access using a library which confirms to the Python DB-API (e.g. an SQLite database accessible using the sqlite module), then you can build a PrettyTable using a cursor object, like this:
 
 import sqlite3
-from prettytable import from_cursor
+from prettytable import from_db_cursor
 
 connection = sqlite3.connect("mydb.db")
 cursor = connection.cursor()
 cursor.execute("SELECT field1, field2, field3 FROM my_table")
-mytable = from_cursor(cursor)
+mytable = from_db_cursor(cursor)
 
 == Getting data out ==
 

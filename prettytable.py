@@ -87,7 +87,6 @@ class PrettyTable(object):
         fields - list or tuple of field names to include in displays
         start - index of first data row to include in output
         end - index of last data row to include in output PLUS ONE (list slice style)
-        fields - names of fields (columns) to include
         header - print a header showing field names (True or False)
         header_style - stylisation to apply to field names in header ("cap", "title", "upper", "lower" or None)
         border - print a border around the table (True or False)
@@ -209,14 +208,26 @@ class PrettyTable(object):
  
     def __getitem__(self, index):
 
-        newtable = copy.deepcopy(self)
+        new = PrettyTable()
+        new.field_names = self.field_names
+        for attr in self._options:
+            value = getattr(self, attr)
+            if value:
+                if attr == "align":
+                    for f, v in zip(new.field_names, value):
+                        new.align[f] = v
+                elif attr == "valign":
+                    setattr(new, "_valign", getattr(self, "_valign"))
+                else:
+                    setattr(new, attr, getattr(self, attr))
         if isinstance(index, slice):
-            newtable._rows = self._rows[index]
+            for row in self._rows[index]:
+                new.add_row(row)
         elif isinstance(index, int):
-            newtable._rows = [self._rows[index],]
+            new.add_row(self._rows[index])
         else:
             raise Exception("Index %s is invalid, must be an integer or slice" % str(index))
-        return newtable
+        return new
 
     if py3k:
         def __str__(self):
@@ -433,6 +444,18 @@ class PrettyTable(object):
             self._max_width[field] = val
     max_width = property(_get_max_width, _set_max_width)
     
+    def _get_fields(self):
+        """List or tuple of field names to include in displays
+
+        Arguments:
+
+        fields - list or tuple of field names to include in displays"""
+        return self._fields
+    def _set_fields(self, val):
+        self._validate_option("fields", val)
+        self._fields = val
+    fields = property(_get_fields, _set_fields)
+
     def _get_start(self):
         """Start index of the range of rows to print
 
@@ -764,8 +787,8 @@ class PrettyTable(object):
         Arguments:
 
         row - row of data, should be a list with as many elements as the table
-        valign - vertical alignment, must be in (None, "t", "m" or "b")
-        has fields"""
+        has fields
+        valign - vertical alignment, must be in (None, "t", "m" or "b")"""
 
         self._validate_valign(valign)
         if self._field_names and len(row) != len(self._field_names):

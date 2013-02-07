@@ -3,7 +3,7 @@
 import unittest
 import sys
 import sqlite3
-sys.path.append("../src/")
+import StringIO
 from math import pi, e, sqrt
 from prettytable import *
 
@@ -492,6 +492,21 @@ class HtmlOutputTests(unittest.TestCase):
     </tr>
 </table>
 """.strip()
+
+class CsvConstructorTest(BasicTests):
+
+    def setUp(self):
+
+        csv_string = """City name, Area , Population , Annual Rainfall
+        Sydney, 2058 ,  4336374   ,      1214.8
+        Melbourne, 1566 ,  3806092   ,       646.9
+        Brisbane, 5905 ,  1857594   ,      1146.4
+        Perth, 5386 ,  1554769   ,       869.4
+        Adelaide, 1295 ,  1158259   ,       600.5
+        Hobart, 1357 ,   205556   ,       619.5
+        Darwin, 0112 ,   120900   ,      1714.7"""
+        csv_fp = StringIO.StringIO(csv_string)
+        self.x = from_csv(csv_fp)
 
 class DatabaseConstructorTest(BasicTests):
 

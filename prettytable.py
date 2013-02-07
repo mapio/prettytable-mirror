@@ -1267,13 +1267,13 @@ def _str_block_width(val):
 # TABLE FACTORIES            #
 ##############################
 
-def from_csv(fp, field_names = None):
+def from_csv(fp, field_names = None, **kwargs):
 
     dialect = csv.Sniffer().sniff(fp.read(1024))
     fp.seek(0)
     reader = csv.reader(fp, dialect)
 
-    table = PrettyTable()
+    table = PrettyTable(**kwargs)
     if field_names:
         table.field_names = field_names
     else:

@@ -1284,13 +1284,14 @@ def from_csv(fp, field_names = None):
 
     return table
 
-def from_db_cursor(cursor):
+def from_db_cursor(cursor, **kwargs):
 
-    table = PrettyTable()
-    table.field_names = [col[0] for col in cursor.description]
-    for row in cursor.fetchall():
-        table.add_row(row)
-    return table
+    if cursor.description:
+        table = PrettyTable(**kwargs)
+        table.field_names = [col[0] for col in cursor.description]
+        for row in cursor.fetchall():
+            table.add_row(row)
+        return table
 
 ##############################
 # MAIN (TEST FUNCTION)       #

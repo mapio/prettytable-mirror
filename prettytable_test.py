@@ -1,15 +1,20 @@
 # coding=UTF-8
 
-import unittest
+from prettytable import *
+
 import sys
+py3k = sys.version_info[0] >= 3
 try:
     import sqlite3
     _have_sqlite = True
 except ImportError:
     _have_sqlite = False
-import StringIO
+if py3k:
+    import io as StringIO
+else:
+    import StringIO
 from math import pi, e, sqrt
-from prettytable import *
+import unittest
 
 class BuildEquivelanceTest(unittest.TestCase):
 
@@ -130,7 +135,9 @@ class OptionOverrideTests(CityDataTest):
 
 class OptionAttributeTests(CityDataTest):
 
-    """Make sure all options which have an attribute interface work as they should."""
+    """Make sure all options which have an attribute interface work as they should.
+    Also make sure option settings are copied correctly when a table is cloned by
+    slicing."""
 
     def testSetForAllColumns(self):
         self.x.field_names = sorted(self.x.field_names)
@@ -153,6 +160,7 @@ class OptionAttributeTests(CityDataTest):
         self.x.junction_char = "*"
         self.x.format = True
         self.x.attributes = {"class" : "prettytable"}
+        assert self.x.get_string() == self.x[:].get_string()
 
     def testSetForOneColumn(self):
         self.x.align["Rainfall"] = "l"
@@ -226,6 +234,10 @@ class SlicingTests(CityDataTest):
 
     def setUp(self):
         CityDataTest.setUp(self)
+
+    def testSliceAll(self):
+        y = self.x[:]
+        assert self.x.get_string() == y.get_string()
 
     def testSliceFirstTwoRows(self):
         y = self.x[0:2]

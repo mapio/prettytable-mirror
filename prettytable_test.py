@@ -2,7 +2,11 @@
 
 import unittest
 import sys
-import sqlite3
+try:
+    import sqlite3
+    _have_sqlite = True
+except ImportError:
+    _have_sqlite = False
 import StringIO
 from math import pi, e, sqrt
 from prettytable import *
@@ -508,25 +512,26 @@ class CsvConstructorTest(BasicTests):
         csv_fp = StringIO.StringIO(csv_string)
         self.x = from_csv(csv_fp)
 
-class DatabaseConstructorTest(BasicTests):
+if _have_sqlite:
+    class DatabaseConstructorTest(BasicTests):
 
-    def setUp(self):
-        self.conn = sqlite3.connect(":memory:")
-        self.cur = self.conn.cursor()
-        self.cur.execute("CREATE TABLE cities (name TEXT, area INTEGER, population INTEGER, rainfall REAL)")
-        self.cur.execute("INSERT INTO cities VALUES (\"Adelaide\", 1295, 1158259, 600.5)")
-        self.cur.execute("INSERT INTO cities VALUES (\"Brisbane\", 5905, 1857594, 1146.4)")
-        self.cur.execute("INSERT INTO cities VALUES (\"Darwin\", 112, 120900, 1714.7)")
-        self.cur.execute("INSERT INTO cities VALUES (\"Hobart\", 1357, 205556, 619.5)")
-        self.cur.execute("INSERT INTO cities VALUES (\"Sydney\", 2058, 4336374, 1214.8)")
-        self.cur.execute("INSERT INTO cities VALUES (\"Melbourne\", 1566, 3806092, 646.9)")
-        self.cur.execute("INSERT INTO cities VALUES (\"Perth\", 5386, 1554769, 869.4)")
-        self.cur.execute("SELECT * FROM cities")
-        self.x = from_db_cursor(self.cur)
+        def setUp(self):
+            self.conn = sqlite3.connect(":memory:")
+            self.cur = self.conn.cursor()
+            self.cur.execute("CREATE TABLE cities (name TEXT, area INTEGER, population INTEGER, rainfall REAL)")
+            self.cur.execute("INSERT INTO cities VALUES (\"Adelaide\", 1295, 1158259, 600.5)")
+            self.cur.execute("INSERT INTO cities VALUES (\"Brisbane\", 5905, 1857594, 1146.4)")
+            self.cur.execute("INSERT INTO cities VALUES (\"Darwin\", 112, 120900, 1714.7)")
+            self.cur.execute("INSERT INTO cities VALUES (\"Hobart\", 1357, 205556, 619.5)")
+            self.cur.execute("INSERT INTO cities VALUES (\"Sydney\", 2058, 4336374, 1214.8)")
+            self.cur.execute("INSERT INTO cities VALUES (\"Melbourne\", 1566, 3806092, 646.9)")
+            self.cur.execute("INSERT INTO cities VALUES (\"Perth\", 5386, 1554769, 869.4)")
+            self.cur.execute("SELECT * FROM cities")
+            self.x = from_db_cursor(self.cur)
 
-    def nonSelectCurosr(self):
-        self.cur.execute("INSERT INTO cities VALUES (Adelaide, 1295, 1158259, 600.5)")
-        assert from_db_cursor(self.cur) is None
+        def nonSelectCurosr(self):
+            self.cur.execute("INSERT INTO cities VALUES (Adelaide, 1295, 1158259, 600.5)")
+            assert from_db_cursor(self.cur) is None
 
 class PrintEnglishTest(CityDataTest):
 

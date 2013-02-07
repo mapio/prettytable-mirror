@@ -843,9 +843,9 @@ class PrettyTable(object):
 
     def _format_value(self, field, value):
         if isinstance(value, int) and field in self._int_format:
-            value = self._unicode(("{0:" + self._int_format[field] + "}").format(value))
+            value = self._unicode(("%%%sd" % self._int_format[field]) % value)
         elif isinstance(value, float) and field in self._float_format:
-            value = self._unicode(("{0:" + self._float_format[field] + "}").format(value))
+            value = self._unicode(("%%%sf" % self._float_format[field]) % value)
         return self._unicode(value)
 
     def _compute_widths(self, rows, options):
@@ -1274,7 +1274,7 @@ def from_csv(fp, field_names = None, **kwargs):
     if field_names:
         table.field_names = field_names
     else:
-        table.field_names = [x.strip() for x in next(reader)]
+        table.field_names = [x.strip() for x in reader.next()]
 
     for row in reader:
         table.add_row([x.strip() for x in row])

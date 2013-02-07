@@ -211,15 +211,8 @@ class PrettyTable(object):
         new = PrettyTable()
         new.field_names = self.field_names
         for attr in self._options:
-            value = getattr(self, attr)
-            if value:
-                if attr == "align":
-                    for f, v in zip(new.field_names, value):
-                        new.align[f] = v
-                elif attr == "valign":
-                    setattr(new, "_valign", getattr(self, "_valign"))
-                else:
-                    setattr(new, attr, getattr(self, attr))
+            setattr(new, "_"+attr, getattr(self, "_"+attr))
+        setattr(new, "_align", getattr(self, "_align"))
         if isinstance(index, slice):
             for row in self._rows[index]:
                 new.add_row(row)
@@ -1297,7 +1290,10 @@ def from_csv(fp, field_names = None, **kwargs):
     if field_names:
         table.field_names = field_names
     else:
-        table.field_names = [x.strip() for x in reader.next()]
+        if py3k:
+            table.field_names = [x.strip() for x in next(reader)]
+        else:
+            table.field_names = [x.strip() for x in reader.next()]
 
     for row in reader:
         table.add_row([x.strip() for x in row])

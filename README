@@ -64,9 +64,20 @@ fp = open("myfile.csv", "r")
 mytable = from_csv(fp)
 fp.close()
 
+== Importing data from a HTML string ==
+
+If you have a string containing a HTML <table>, you can read this data into a
+PrettyTable like this:
+
+from prettytable import from_html
+mytable = from_html(html_string)
+
 == Importing data from a database cursor ==
 
-If you have your table data in a database which you can access using a library which confirms to the Python DB-API (e.g. an SQLite database accessible using the sqlite module), then you can build a PrettyTable using a cursor object, like this:
+If you have your table data in a database which you can access using a library
+which confirms to the Python DB-API (e.g. an SQLite database accessible using
+the sqlite module), then you can build a PrettyTable using a cursor object,
+like this:
 
 import sqlite3
 from prettytable import from_db_cursor

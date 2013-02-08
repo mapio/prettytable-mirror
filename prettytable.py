@@ -46,10 +46,12 @@ if py3k:
     itermap = map
     iterzip = zip
     uni_chr = chr
+    from html.parser import HTMLParser
 else: 
     itermap = itertools.imap
     iterzip = itertools.izip
     uni_chr = unichr
+    from HTMLParser import HTMLParser
 
 if py3k and sys.version_info[1] >= 2:
     from html import escape
@@ -1308,6 +1310,84 @@ def from_db_cursor(cursor, **kwargs):
         for row in cursor.fetchall():
             table.add_row(row)
         return table
+
+def from_html(html_code):
+    """
+        generates a PrettyTables from html code. Each table in
+        html becomes a PrettyTable object
+    """
+    class TableHandler(HTMLParser):
+        """
+
+        """
+        def __init__(self):
+            HTMLParser.__init__(self)
+            self.tables = []
+            self.last_row = []
+            self.rows = []
+            self.max_row_width = 0
+            self.aktive = None
+            self.last_content = ""
+            self.is_last_row_header = False
+
+        def handle_starttag(self,tag, attrs):
+            self.aktive = tag
+            if tag == "th":
+                self.is_last_row_header = True
+
+        def handle_endtag(self,tag):
+            if tag in ["th", "td"]:
+                stripped_content = self.last_content.strip()
+                self.last_row.append(stripped_content)
+            if tag == "tr":
+                self.rows.append(
+                    (self.last_row, self.is_last_row_header))
+                self.max_row_width =\
+                    max(self.max_row_width, len(self.last_row))
+                self.last_row = []
+                self.is_last_row_header = False
+            if tag == "table":
+                table = self.generate_table(self.rows)
+                self.tables.append(table)
+                self.rows = []
+            self.last_content = " "
+            self.aktive = None
+
+
+        def handle_data(self, data):
+            self.last_content += data
+
+        def generate_table(self, rows):
+            """
+                generates from a list of rows a PrettyTable object
+            """
+            table = PrettyTable()
+            for row in self.rows:
+                if len(row[0]) < self.max_row_width:
+                    appends = self.max_row_width - len(row[0])
+                    for i in range(1,appends):
+                        row[0].append("-")
+
+                if row[1] == True:
+                    self.make_fields_unique(row[0])
+                    table.field_names = row[0]
+                else:
+                    table.add_row(row[0])
+            return table
+
+        def make_fields_unique(self, fields):
+            """
+            iterates over the row and make each field unique
+           """
+            for i in range(0, len(fields)):
+                for j in range(i+1, len(fields)):
+                    if fields[i] == fields[j]:
+                        fields[j] += "'"
+
+
+    parser = TableHandler()
+    parser.feed(html_code)
+    return parser.tables
 
 ##############################
 # MAIN (TEST FUNCTION)       #

@@ -112,9 +112,9 @@ class PrettyTable(object):
         # Data
         self._field_names = []
         self._align = {}
+        self._valign = {}
         self._max_width = {}
         self._rows = []
-        self._valign = []
         if field_names:
             self.field_names = field_names
         else:
@@ -409,10 +409,20 @@ class PrettyTable(object):
             for old_name, new_name in zip(old_names, val):
                 self._align[new_name] = self._align[old_name]
             for old_name in old_names:
-                self._align.pop(old_name)
+                if old_name not in self._align:
+                    self._align.pop(old_name)
         else:
             for field in self._field_names:
                 self._align[field] = "c"
+        if self._valign and old_names:
+            for old_name, new_name in zip(old_names, val):
+                self._valign[new_name] = self._valign[old_name]
+            for old_name in old_names:
+                if old_name not in self._valign:
+                    self._valign.pop(old_name)
+        else:
+            for field in self._field_names:
+                self._valign[field] = "t"
     field_names = property(_get_field_names, _set_field_names)
 
     def _get_align(self):
@@ -427,8 +437,8 @@ class PrettyTable(object):
         return self._valign
     def _set_valign(self, val):
         self._validate_valign(val)
-        for ri in range(len(self._rows)):
-            self._valign[ri] = val
+        for field in self._field_names:
+            self._valign[field] = val
     valign = property(_get_valign, _set_valign)
 
     def _get_max_width(self):
@@ -775,24 +785,20 @@ class PrettyTable(object):
     # DATA INPUT METHODS         #
     ##############################
 
-    def add_row(self, row, valign=None):
+    def add_row(self, row):
 
         """Add a row to the table
 
         Arguments:
 
         row - row of data, should be a list with as many elements as the table
-        has fields
-        valign - vertical alignment, must be in (None, "t", "m" or "b")"""
+        has fields"""
 
-        self._validate_valign(valign)
         if self._field_names and len(row) != len(self._field_names):
             raise Exception("Row has incorrect number of values, (actual) %d!=%d (expected)" %(len(row),len(self._field_names)))
         if not self._field_names:
             self.field_names = [("Field %d" % (n+1)) for n in range(0,len(row))]
         self._rows.append(list(row))
-
-        self._valign.append(valign)
 
     def del_row(self, row_index):
 
@@ -805,9 +811,8 @@ class PrettyTable(object):
         if row_index > len(self._rows)-1:
             raise Exception("Cant delete row at index %d, table only has %d rows!" % (row_index, len(self._rows)))
         del self._rows[row_index]
-        del self._valign[row_index]
 
-    def add_column(self, fieldname, column, align="c", valign=None):
+    def add_column(self, fieldname, column, align="c", valign="t"):
 
         """Add a column to the table.
 
@@ -817,17 +822,17 @@ class PrettyTable(object):
         column - column of data, should be a list with as many elements as the
         table has rows
         align - desired alignment for this column - "l" for left, "c" for centre and "r" for right
-        valign - desired vertical alignment for new columns - None for don't care, "t" for top, "m" for middle and "b" for bottom"""
+        valign - desired vertical alignment for new columns - "t" for top, "m" for middle and "b" for bottom"""
 
         if len(self._rows) in (0, len(column)):
             self._validate_align(align)
             self._validate_valign(valign)
             self._field_names.append(fieldname)
             self._align[fieldname] = align
+            self._valign[fieldname] = valign
             for i in range(0, len(column)):
                 if len(self._rows) < i+1:
                     self._rows.append([])
-                    self._valign.append(valign)
                 self._rows[i].append(column[i])
         else:
             raise Exception("Column length %d does not match number of rows %d!" % (len(column), len(self._rows)))
@@ -837,14 +842,12 @@ class PrettyTable(object):
         """Delete all rows from the table but keep the current field names"""
 
         self._rows = []
-        self._valign = []
 
     def clear(self):
 
         """Delete all rows and field names from the table, maintaining nothing but styling options"""
 
         self._rows = []
-        self._valign = []
         self._field_names = []
         self._widths = []
 
@@ -973,8 +976,8 @@ class PrettyTable(object):
             lines.append(self._hrule)
 
         # Add rows
-        for row, valign in zip(formatted_rows, self._valign):
-            lines.append(self._stringify_row(row, valign, options))
+        for row in formatted_rows:
+            lines.append(self._stringify_row(row, options))
 
         # Add bottom of border
         if options["border"] and options["hrules"] == FRAME:
@@ -1036,7 +1039,7 @@ class PrettyTable(object):
             bits.append(self._hrule)
         return "".join(bits)
 
-    def _stringify_row(self, row, valign, options):
+    def _stringify_row(self, row, options):
        
         for index, field, value, width, in zip(range(0,len(row)), self._field_names, row, self._widths):
             # Enforce max widths
@@ -1068,6 +1071,7 @@ class PrettyTable(object):
 
         for field, value, width, in zip(self._field_names, row, self._widths):
 
+            valign = self._valign[field]
             lines = value.split("\n")
             dHeight = row_height - len(lines)
             if dHeight:
@@ -1222,16 +1226,13 @@ class PrettyTable(object):
         valigns = []
         for field in self._field_names:
             aligns.append({ "l" : "left", "r" : "right", "c" : "center" }[self._align[field]])
-        for row, valign in zip(formatted_rows, self._valign):
-            if valign == None:
-              valign = ""
-            else:
-              valign = " vertical-align: %s;" % ({"t" : "top", "m" : "middle", "b" : "bottom"}[valign])
+            valigns.append({"t" : "top", "m" : "middle", "b" : "bottom"}[self._valign[field]])
+        for row in formatted_rows:
             lines.append("    <tr>")
-            for field, datum, align in zip(self._field_names, row, aligns):
+            for field, datum, align, valign in zip(self._field_names, row, aligns, valigns):
                 if options["fields"] and field not in options["fields"]:
                     continue
-                lines.append("        <td style=\"padding-left: %dem; padding-right: %dem;%s text-align: %s\">%s</td>" % (lpad, rpad, valign, align, escape(datum).replace("\n", "<br />")))
+                lines.append("        <td style=\"padding-left: %dem; padding-right: %dem; text-align: %s; vertical-align: %s\">%s</td>" % (lpad, rpad, align, valign, escape(datum).replace("\n", "<br />")))
             lines.append("    </tr>")
         lines.append("</table>")
 

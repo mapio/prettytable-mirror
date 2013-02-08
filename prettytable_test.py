@@ -447,6 +447,7 @@ class BreakLineTests(unittest.TestCase):
 """.strip()
 
 class HtmlOutputTests(unittest.TestCase):
+
     def testHtmlOutput(self):
         t = PrettyTable(['Field 1', 'Field 2', 'Field 3'])
         t.add_row(['value 1', 'value2', 'value3'])
@@ -541,9 +542,16 @@ if _have_sqlite:
             self.cur.execute("SELECT * FROM cities")
             self.x = from_db_cursor(self.cur)
 
-        def nonSelectCurosr(self):
-            self.cur.execute("INSERT INTO cities VALUES (Adelaide, 1295, 1158259, 600.5)")
+        def testNonSelectCurosr(self):
+            self.cur.execute("INSERT INTO cities VALUES (\"Adelaide\", 1295, 1158259, 600.5)")
             assert from_db_cursor(self.cur) is None
+
+class HtmlConstructorTest(CityDataTest):
+
+    def testHtmlAndBack(self):
+        html_string = self.x.get_html_string()
+        new_table = from_html(html_string)[0]
+        assert new_table.get_string() == self.x.get_string()
 
 class PrintEnglishTest(CityDataTest):
 

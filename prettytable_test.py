@@ -531,6 +531,16 @@ class HtmlConstructorTest(CityDataTest):
         new_table = from_html(html_string)[0]
         assert new_table.get_string() == self.x.get_string()
 
+    def testHtmlOneAndBack(self):
+        html_string = self.x.get_html_string()
+        new_table = from_html_one(html_string)
+        assert new_table.get_string() == self.x.get_string()
+
+    def testHtmlOneFailOnMany(self):
+        html_string = self.x.get_html_string()
+        html_string += self.x.get_html_string()
+        self.assertRaises(Exception, from_html_one, html_string)
+
 class PrintEnglishTest(CityDataTest):
 
     def testPrint(self):

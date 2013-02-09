@@ -167,6 +167,7 @@ class OptionAttributeTests(CityDataTest):
         self.x.max_width["Name"] = 10
         self.x.int_format["Population"] = "4"
         self.x.float_format["Area"] = "2.2"
+        assert self.x.get_string() == self.x[:].get_string()
 
 class BasicTests(CityDataTest):
 
@@ -401,29 +402,6 @@ class BreakLineTests(unittest.TestCase):
 +------------+-------------+
 """.strip()
 
-        t = PrettyTable(['Field 1', 'Field 2'])
-        t.add_row(['value 1', 'value2\nsecond line\nthird line'], valign = "m")
-        t.add_row(['value 3\nsecond line\nthirdline', 'value4'], valign = "b")
-        t.add_row(['value 3\nsecond line\nthirdline', 'value4'], valign = "t")
-        result = t.get_string(hrules=ALL)
-        assert result.strip() == """
-+-------------+-------------+
-|   Field 1   |   Field 2   |
-+-------------+-------------+
-|             |    value2   |
-|   value 1   | second line |
-|             |  third line |
-+-------------+-------------+
-|   value 3   |             |
-| second line |             |
-|  thirdline  |    value4   |
-+-------------+-------------+
-|   value 3   |    value4   |
-| second line |             |
-|  thirdline  |             |
-+-------------+-------------+
-""".strip()
-
     def testHtmlBreakLine(self):
         t = PrettyTable(['Field 1', 'Field 2'])
         t.add_row(['value 1', 'value2\nsecond line'])
@@ -493,19 +471,19 @@ class HtmlOutputTests(unittest.TestCase):
         <th style="padding-left: 1em; padding-right: 1em; text-align: center">Field 3</th>
     </tr>
     <tr>
-        <td style="padding-left: 1em; padding-right: 1em; text-align: center">value 1</td>
-        <td style="padding-left: 1em; padding-right: 1em; text-align: center">value2</td>
-        <td style="padding-left: 1em; padding-right: 1em; text-align: center">value3</td>
+        <td style="padding-left: 1em; padding-right: 1em; text-align: center; vertical-align: top">value 1</td>
+        <td style="padding-left: 1em; padding-right: 1em; text-align: center; vertical-align: top">value2</td>
+        <td style="padding-left: 1em; padding-right: 1em; text-align: center; vertical-align: top">value3</td>
     </tr>
     <tr>
-        <td style="padding-left: 1em; padding-right: 1em; text-align: center">value 4</td>
-        <td style="padding-left: 1em; padding-right: 1em; text-align: center">value5</td>
-        <td style="padding-left: 1em; padding-right: 1em; text-align: center">value6</td>
+        <td style="padding-left: 1em; padding-right: 1em; text-align: center; vertical-align: top">value 4</td>
+        <td style="padding-left: 1em; padding-right: 1em; text-align: center; vertical-align: top">value5</td>
+        <td style="padding-left: 1em; padding-right: 1em; text-align: center; vertical-align: top">value6</td>
     </tr>
     <tr>
-        <td style="padding-left: 1em; padding-right: 1em; text-align: center">value 7</td>
-        <td style="padding-left: 1em; padding-right: 1em; text-align: center">value8</td>
-        <td style="padding-left: 1em; padding-right: 1em; text-align: center">value9</td>
+        <td style="padding-left: 1em; padding-right: 1em; text-align: center; vertical-align: top">value 7</td>
+        <td style="padding-left: 1em; padding-right: 1em; text-align: center; vertical-align: top">value8</td>
+        <td style="padding-left: 1em; padding-right: 1em; text-align: center; vertical-align: top">value9</td>
     </tr>
 </table>
 """.strip()

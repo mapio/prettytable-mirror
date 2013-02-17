@@ -1,4 +1,4 @@
-########## PrettyTable 0.7 - Feb XX, 2013 ###########
+########## PrettyTable 0.7 - Feb 17, 2013 ###########
 
 * Improved Python 2 and 3 compatibility (2.4-3.2).
 * Improved support for non-Latin characters.  Table widths should
@@ -9,6 +9,7 @@
   HTML table (thanks to Christoph Robbert for submitting this patch!)
 * new valign attribute controls vertical alignment of text when
   some cells in a row have multiple lines of text and others don't.
+  (thanks to Google Code user maartendb for submitting this patch!)
 * hrules attribute can now be set to HEADER, which draws a rule only
   under the header row
 * new vrules attribute controls drawing of vertical rules and can

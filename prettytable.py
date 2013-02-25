@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2009, Luke Maurits <luke@maurits.id.au>
+# Copyright (c) 2009-2013, Luke Maurits <luke@maurits.id.au>
 # All rights reserved.
 # With contributions from:
 #  * Chris Clark
@@ -29,7 +29,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-__version__ = "trunk"
+__version__ = "0.7.1"
 
 import copy
 import csv

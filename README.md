@@ -1,5 +1,7 @@
 ##TUTORIAL ON HOW TO USE THE PRETTYTABLE 0.6+ API
 
+**  Note: This is a mirror of the prettytable repository available on Google Code. The original issue tracker can be found here: http://code.google.com/p/prettytable/issues/list **
+
 This tutorial is distributed with PrettyTable and is meant to serve
 as a "quick start" guide for the lazy or impatient.  It is not an
 exhaustive description of the whole API, and it is not guaranteed to be

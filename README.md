@@ -1,6 +1,6 @@
-##TUTORIAL ON HOW TO USE THE PRETTYTABLE 0.6+ API
+I am not the author of this software, this is just a mirror of [prettytable](http://code.google.com/p/prettytable) on [Google Code](http://code.google.com/); in particular, please report your issues on the [official issue tracker](http://code.google.com/p/prettytable/issues/list)!
 
-**  Note: This is a mirror of the prettytable repository available on Google Code. The original issue tracker can be found here: http://code.google.com/p/prettytable/issues/list **
+##TUTORIAL ON HOW TO USE THE PRETTYTABLE 0.6+ API
 
 This tutorial is distributed with PrettyTable and is meant to serve
 as a "quick start" guide for the lazy or impatient.  It is not an
@@ -527,3 +527,6 @@ If you want a copy of a PrettyTable object with just a subset of the rows,
 you can use list slicing notation:
 
 `new_table = old_table[0:5]`
+
+
+![Analytics](https://ga-beacon.appspot.com/UA-377250-20/prettytable-mirror?pixel)

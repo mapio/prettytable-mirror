@@ -446,7 +446,7 @@ get a string representation - just use `get_html_string()`.  HTML printing
 supports the `fields`, `start`, `end`, `sortby` and `reversesort` arguments in
 exactly the same way as ASCII printing.
 
-== Styling HTML tables ==
+###Styling HTML tables
 
 By default, PrettyTable outputs HTML for "vanilla" tables.  The HTML code is
 quite simple.  It looks like this:

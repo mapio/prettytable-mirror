@@ -1,6 +1,6 @@
 I am not the author of this software, this is just a mirror of [prettytable](http://code.google.com/p/prettytable) on [Google Code](http://code.google.com/); in particular, please report your issues on the [official issue tracker](http://code.google.com/p/prettytable/issues/list)!
 
-##TUTORIAL ON HOW TO USE THE PRETTYTABLE 0.6+ API
+## TUTORIAL ON HOW TO USE THE PRETTYTABLE 0.6+ API
 
 This tutorial is distributed with PrettyTable and is meant to serve
 as a "quick start" guide for the lazy or impatient.  It is not an
@@ -8,7 +8,7 @@ exhaustive description of the whole API, and it is not guaranteed to be
 100% up to date.  For more complete and update documentation, check the
 PrettyTable wiki at http://code.google.com/p/prettytable/w/list
 
-###Getting your data into (and out of) the table
+### Getting your data into (and out of) the table
 
 Let's suppose you have a shiny new PrettyTable:
 
@@ -19,7 +19,7 @@ x = PrettyTable()
 
 and you want to put some data into it.  You have a few options.
 
-###Row by row
+### Row by row
 
 You can add data one row at a time.  To do this you can set the field names
 first using the `field_names` attribute, and then add the rows one at a time
@@ -36,7 +36,7 @@ x.add_row(["Melbourne", 1566, 3806092, 646.9])
 x.add_row(["Perth", 5386, 1554769, 869.4])
 ```
 
-###Column by column
+### Column by column
 
 You can add data one column at a time as well.  To do this you use the
 `add_column` method, which takes two arguments - a string which is the name for
@@ -53,7 +53,7 @@ x.add_column("Annual Rainfall",[600.5, 1146.4, 1714.7, 619.5, 1214.8, 646.9,
 869.4])
 ```
 
-###Mixing and matching
+### Mixing and matching
 
 If you really want to, you can even mix and match `add_row` and `add_column`
 and build some of your table in one way and some of it in the other.  There's a
@@ -62,7 +62,7 @@ nicely as if you'd done it using just one of the two approaches.  Tables built
 this way are kind of confusing for other people to read, though, so don't do
 this unless you have a good reason.
 
-###Importing data from a CSV file
+### Importing data from a CSV file
 
 If you have your table data in a comma separated values file (.csv), you can
 read this data into a PrettyTable like this:
@@ -74,7 +74,7 @@ mytable = from_csv(fp)
 fp.close()
 ```
 
-###Importing data from a database cursor
+### Importing data from a database cursor
 
 If you have your table data in a database which you can access using a library which confirms to the Python DB-API (e.g. an SQLite database accessible using the sqlite module), then you can build a PrettyTable using a cursor object, like this:
 
@@ -88,7 +88,7 @@ cursor.execute("SELECT field1, field2, field3 FROM my_table")
 mytable = from_cursor(cursor)
 ```
 
-###Getting data out
+### Getting data out
 
 There are three ways to get data out of a PrettyTable, in increasing order of
 completeness:
@@ -101,7 +101,7 @@ it with the same kind of data.
 names.  It's not quite the same as creating a fresh table instance, though -
 style related settings, discussed later, are maintained.
 
-###Displaying your table in ASCII form
+### Displaying your table in ASCII form
 
 PrettyTable's main goal is to let you print tables in an attractive ASCII form,
 like this:
@@ -123,7 +123,7 @@ like this:
 You can print tables like this to `stdout` or get string representations of
 them.
 
-###Printing
+### Printing
 
 To print a table in ASCII form, you can just do this:
 
@@ -142,7 +142,7 @@ documented below:
 
 `print x.get_string()`
 
-###Stringing
+### Stringing
 
 If you don't want to actually print your table in ASCII form but just get a
 string containing what _would_ be printed if you use `print x`, you can use
@@ -154,7 +154,7 @@ This string is guaranteed to look exactly the same as what would be printed by
 doing `print x`.  You can now do all the usual things you can do with a
 string, like write your table to a file or insert it into a GUI.
 
-###Controlling which data gets displayed
+### Controlling which data gets displayed
 
 If you like, you can restrict the output of `print x` or `x.get_string` to
 only the fields or rows you like.
@@ -200,11 +200,11 @@ prints:
 +-----------+------+------------+-----------------+
 ```
 
-##Changing the alignment of columns
+## Changing the alignment of columns
 
 By default, all columns in a table are centre aligned.
 
-###All columns at once
+### All columns at once
 
 You can change the alignment of all the columns in a table at once by assigning
 a one character string to the `align` attribute.  The allowed strings are "l",
@@ -231,7 +231,7 @@ gives:
 +-----------+------+------------+-----------------+
 ```
 
-###One column at a time
+### One column at a time
 
 You can also change the alignment of individual columns based on the
 corresponding field name by treating the `align` attribute as if it were a
@@ -261,7 +261,7 @@ gives:
 +-----------+------+------------+-----------------+
 ```
 
-##Sorting your table by a field
+## Sorting your table by a field
 
 You can make sure that your ASCII tables are produced with the data sorted by
 one particular field by giving `get_string` a `sortby` keyword argument, which
@@ -317,7 +317,7 @@ the column specified by the `sort_by` argument.  The remaining n elements
 are the data in each of the table's columns, in order, including a repeated
 instance of the data in the `sort_by` column.
 
-##Changing the appearance of your table - the easy way
+## Changing the appearance of your table - the easy way
 
 By default, PrettyTable produces ASCII tables that look like the ones used in
 SQL database shells.  But if can print them in a variety of other formats as
@@ -325,7 +325,7 @@ well.  If the format you want to use is common, PrettyTable makes this very
 easy for you to do using the `set_style` method.  If you want to produce an
 uncommon table, you'll have to do things slightly harder (see later).
 
-###Setting a table style
+### Setting a table style
 
 You can set the style for your table using the `set_style` method before any
 calls to `print` or `get_string`.  Here's how to print a table in a format
@@ -347,14 +347,14 @@ programs for columnar data
 
 Other styles are likely to appear in future releases.
 
-##hanging the appearance of your table - the hard way
+## hanging the appearance of your table - the hard way
 
 If you want to display your table in a style other than one of the in-built
 styles listed above, you'll have to set things up the hard way.
 
 Don't worry, it's not really that hard!
 
-##Style options
+## Style options
 
 PrettyTable has a number of style options which control various aspects of how
 tables are displayed.  You have the freedom to set each of these options
@@ -391,7 +391,7 @@ The options are these:
 
 You can set the style options to your own settings in two ways:
 
-##Setting style options for the long term
+## Setting style options for the long term
 
 If you want to print your table with a different style several times, you can
 set your option for the "long term" just by changing the appropriate
@@ -427,7 +427,7 @@ x.padding_width = 5
 x = PrettyTable(border=False, header=False, padding_width=5)
 ```
 
-##Changing style options just once
+## Changing style options just once
 
 If you don't want to make long term style changes by changing an attribute like
 in the previous section, you can make changes that last for just one
@@ -440,7 +440,7 @@ print x.get_string(border=False)
 print x
 ```
 
-##Displaying your table in HTML form
+## Displaying your table in HTML form
 
 PrettyTable will also print your tables in HTML form, as `<table>`s.  Just like
 in ASCII form, you can actually print your table - just use `print_html()` - or
@@ -448,7 +448,7 @@ get a string representation - just use `get_html_string()`.  HTML printing
 supports the `fields`, `start`, `end`, `sortby` and `reversesort` arguments in
 exactly the same way as ASCII printing.
 
-###Styling HTML tables
+### Styling HTML tables
 
 By default, PrettyTable outputs HTML for "vanilla" tables.  The HTML code is
 quite simple.  It looks like this:
@@ -490,7 +490,7 @@ Just like with ASCII tables, if you want to change the table's style for just
 one `print_html` or one `get_html_string` you can pass those methods keyword
 arguments - exactly like `print` and `get_string`.
 
-##Setting HTML attributes
+## Setting HTML attributes
 
 You can provide a dictionary of HTML attribute name/value pairs to the
 `print_html` and `get_html_string` methods using the `attributes` keyword
@@ -516,9 +516,9 @@ will print:
 </table>
 ```
 
-##Miscellaneous things
+## Miscellaneous things
 
-###Copying a table
+### Copying a table
 
 You can call the `copy` method on a PrettyTable object without arguments to
 return an identical independent copy of the table.
